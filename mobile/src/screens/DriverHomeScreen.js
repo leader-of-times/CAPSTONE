@@ -8,6 +8,7 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -21,6 +22,11 @@ import {
   onNewRideRequest,
   getSocket,
 } from '../services/socket';
+import tokens from '../styles/tokens';
+import PrimaryButton from '../components/PrimaryButton';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import StatusBadge from '../components/StatusBadge';
 
 export default function DriverHomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
@@ -74,6 +80,42 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
         [{ text: 'View', onPress: () => {} }]
       );
     });
+
+    // Listen for ride acceptance confirmation (when this driver accepts)
+    const socket = getSocket();
+    if (socket) {
+      socket.on('rideAcceptedConfirmation', (data) => {
+        console.log('Driver received rideAcceptedConfirmation:', data);
+        setCurrentRide({
+          _id: data.rideId,
+          status: data.status,
+          student: data.student,
+          pickup: data.pickup,
+          dropoff: data.dropoff,
+          fare: data.fare
+        });
+        // Remove from pending requests
+        setPendingRequests((prev) => prev.filter((r) => r.rideId !== data.rideId));
+      });
+
+      // Listen for rides accepted by other drivers (remove from pending)
+      socket.on('rideNoLongerAvailable', (data) => {
+        console.log('Driver received rideNoLongerAvailable:', data);
+        setPendingRequests((prev) => prev.filter((r) => r.rideId !== data.rideId));
+      });
+
+      // Listen for ride started (update local state when starting)
+      socket.on('rideStarted', (data) => {
+        console.log('Driver received rideStarted:', data);
+        setCurrentRide((prev) => prev ? { ...prev, status: data.status } : null);
+      });
+
+      // Listen for ride completed (update local state)
+      socket.on('rideCompleted', (data) => {
+        console.log('Driver received rideCompleted:', data);
+        setCurrentRide(null);
+      });
+    }
   };
 
   const handleToggleOnline = () => {
@@ -99,8 +141,8 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
     try {
       const response = await acceptRide(rideId);
       console.log('Driver accepted ride:', rideId, response.data);
-      setCurrentRide(response.data.ride);
-      setPendingRequests((prev) => prev.filter((r) => r.rideId !== rideId));
+      // Don't set currentRide here - let the socket event handle it
+      // This prevents race conditions and ensures consistency
       Alert.alert('Success', 'Ride accepted!');
     } catch (error) {
       console.error('Accept ride error:', error);
@@ -178,223 +220,412 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome, {userName}!</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statusCard}>
-        <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>Driver Status</Text>
-          <View style={styles.switchContainer}>
-            <Text style={[styles.statusText, isOnline && styles.onlineText]}>
-              {isOnline ? 'Online' : 'Offline'}
-            </Text>
-            <Switch
-              value={isOnline}
-              onValueChange={handleToggleOnline}
-              trackColor={{ false: '#cbd5e1', true: '#10b981' }}
-              thumbColor={isOnline ? '#fff' : '#f4f4f5'}
-            />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Avatar name={userName} size={40} />
+            <View style={styles.headerText}>
+              <Text style={styles.greetingText}>Driver</Text>
+              <Text style={styles.userName}>{userName}</Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutIcon}>⎋</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* Current/ongoing ride display removed to start fresh */}
-
-      {pendingRequests.length > 0 && !currentRide && (
-        <View style={styles.requestsCard}>
-          <Text style={styles.cardTitle}>Ride Requests</Text>
-          {pendingRequests.map((request) => (
-            <View key={request.rideId} style={styles.requestItem}>
-              <View style={styles.requestInfo}>
-                <Text style={styles.requestText}>{request.pickup}</Text>
-                <Text style={styles.requestFare}>₹{request.fareEstimate}</Text>
+        <View style={styles.content}>
+          {/* Status Card */}
+          <Card style={styles.statusCard}>
+            <View style={styles.statusRow}>
+              <View style={styles.statusLeft}>
+                <Text style={styles.statusLabel}>Your Status</Text>
+                <Text style={[styles.statusValue, isOnline && styles.onlineValue]}>
+                  {isOnline ? '🟢 Online' : '⚫ Offline'}
+                </Text>
               </View>
-              <TouchableOpacity
-                style={styles.acceptButton}
-                onPress={() => {
-                  console.log('Accept button pressed for rideId:', request.rideId);
-                  handleAcceptRide(request.rideId);
-                }}
-                disabled={loading}
-              >
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
+              <Switch
+                value={isOnline}
+                onValueChange={handleToggleOnline}
+                trackColor={{ false: '#cbd5e1', true: tokens.colors.accent }}
+                thumbColor={tokens.colors.white}
+                ios_backgroundColor="#cbd5e1"
+              />
             </View>
-          ))}
-        </View>
-      )}
+            {!isOnline && (
+              <Text style={styles.statusHint}>
+                Go online to start receiving ride requests
+              </Text>
+            )}
+          </Card>
 
-      {rideHistory.length > 0 && (
-        <View style={styles.historyCard}>
-          <Text style={styles.cardTitle}>Recent Rides</Text>
-          {rideHistory.slice(0, 5).map((ride) => (
-            <View key={ride._id} style={styles.historyItem}>
-              <Text style={styles.historyStatus}>{ride.status}</Text>
-              <Text style={styles.historyFare}>₹{ride.fare.total}</Text>
+          {/* Current Ride */}
+          {currentRide && (
+            <Card variant="dark" style={styles.currentRideCard}>
+              <View style={styles.rideHeader}>
+                <Text style={styles.cardTitle}>Active Ride</Text>
+                <StatusBadge status={currentRide.status} />
+              </View>
+
+              {currentRide.student && (
+                <View style={styles.passengerSection}>
+                  <Avatar name={currentRide.student.name} size={48} />
+                  <View style={styles.passengerDetails}>
+                    <Text style={styles.passengerName}>{currentRide.student.name}</Text>
+                    {currentRide.student.phone && (
+                      <Text style={styles.passengerPhone}>📞 {currentRide.student.phone}</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.tripDetails}>
+                <View style={styles.tripDetailRow}>
+                  <Text style={styles.tripLabel}>📍 Pickup</Text>
+                  <Text style={styles.tripValue} numberOfLines={1}>{currentRide.pickup}</Text>
+                </View>
+                <View style={styles.tripDetailRow}>
+                  <Text style={styles.tripLabel}>🎯 Drop-off</Text>
+                  <Text style={styles.tripValue} numberOfLines={1}>{currentRide.dropoff}</Text>
+                </View>
+                <View style={styles.tripDetailRow}>
+                  <Text style={styles.tripLabel}>💵 Fare</Text>
+                  <Text style={styles.fareValue}>₹{currentRide.fare?.total || 0}</Text>
+                </View>
+              </View>
+
+              {currentRide.status === 'Accepted' && (
+                <PrimaryButton
+                  title="Start Ride"
+                  onPress={handleStartRide}
+                  loading={loading}
+                  variant="primary"
+                  style={styles.actionButton}
+                />
+              )}
+
+              {currentRide.status === 'OnRide' && (
+                <PrimaryButton
+                  title="Complete Ride"
+                  onPress={handleCompleteRide}
+                  loading={loading}
+                  variant="primary"
+                  style={styles.actionButton}
+                />
+              )}
+            </Card>
+          )}
+
+          {/* Pending Requests */}
+          {pendingRequests.length > 0 && !currentRide && (
+            <Card style={styles.requestsCard}>
+              <Text style={styles.cardTitle}>New Ride Requests</Text>
+              <Text style={styles.requestsSubtitle}>
+                {pendingRequests.length} {pendingRequests.length === 1 ? 'request' : 'requests'} waiting
+              </Text>
+              {pendingRequests.map((request) => (
+                <View key={request.rideId} style={styles.requestItem}>
+                  <View style={styles.requestInfo}>
+                    <Text style={styles.requestPickup} numberOfLines={1}>
+                      📍 {request.pickup}
+                    </Text>
+                    <View style={styles.requestMeta}>
+                      <Text style={styles.requestDistance}>
+                        {request.distance ? `${request.distance.toFixed(1)} km` : ''}
+                      </Text>
+                      <Text style={styles.requestFare}>₹{request.fareEstimate}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.acceptButton}
+                    onPress={() => {
+                      console.log('Accept button pressed for rideId:', request.rideId);
+                      handleAcceptRide(request.rideId);
+                    }}
+                    disabled={loading}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* Recent Rides */}
+          {rideHistory.length > 0 && !currentRide && pendingRequests.length === 0 && (
+            <Card style={styles.historyCard}>
+              <Text style={styles.cardTitle}>Recent Trips</Text>
+              {rideHistory.slice(0, 5).map((ride) => (
+                <View key={ride._id} style={styles.historyItem}>
+                  <View style={styles.historyLeft}>
+                    <StatusBadge status={ride.status} />
+                    <Text style={styles.historyDate}>
+                      {new Date(ride.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Text style={styles.historyFare}>₹{ride.fare.total}</Text>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {isOnline && pendingRequests.length === 0 && !currentRide && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🚗</Text>
+              <Text style={styles.emptyTitle}>Waiting for rides...</Text>
+              <Text style={styles.emptyText}>
+                You're online! New ride requests will appear here.
+              </Text>
             </View>
-          ))}
+          )}
         </View>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: tokens.colors.black,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: tokens.colors.black,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingTop: 8,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: tokens.colors.black,
   },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: '600',
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 14,
+    color: tokens.colors.gray400,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.colors.white,
   },
   logoutButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.gray900,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutText: {
-    color: '#ef4444',
-    fontSize: 14,
+  logoutIcon: {
+    fontSize: 20,
+    color: tokens.colors.white,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   statusCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
+    marginBottom: 20,
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  statusLeft: {
+    flex: 1,
+  },
   statusLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+    color: tokens.colors.gray600,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  statusValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: tokens.colors.black,
   },
-  statusText: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '500',
+  onlineValue: {
+    color: tokens.colors.success,
   },
-  onlineText: {
-    color: '#10b981',
+  statusHint: {
+    fontSize: 13,
+    color: tokens.colors.gray600,
+    marginTop: 12,
+    fontStyle: 'italic',
   },
   currentRideCard: {
-    backgroundColor: '#dbeafe',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2563eb',
+    marginBottom: 20,
+  },
+  rideHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: tokens.colors.white,
+  },
+  passengerSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.gray700,
+  },
+  passengerDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  passengerName: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
+    color: tokens.colors.white,
+    marginBottom: 4,
   },
-  rideStatus: {
-    fontSize: 16,
-    color: '#1e40af',
-    marginBottom: 5,
-  },
-  rideInfo: {
+  passengerPhone: {
     fontSize: 14,
-    color: '#475569',
-    marginBottom: 15,
+    color: tokens.colors.gray400,
   },
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 15,
-    borderRadius: 8,
+  tripDetails: {
+    marginBottom: 16,
+  },
+  tripDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  buttonSuccess: {
-    backgroundColor: '#10b981',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
+  tripLabel: {
+    fontSize: 14,
+    color: tokens.colors.gray400,
+    width: 100,
   },
-  buttonDisabled: {
-    backgroundColor: '#94a3b8',
+  tripValue: {
+    fontSize: 14,
+    color: tokens.colors.white,
+    flex: 1,
+    textAlign: 'right',
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  fareValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.colors.success,
+  },
+  actionButton: {
+    marginTop: 8,
   },
   requestsCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
+    marginBottom: 20,
+  },
+  requestsSubtitle: {
+    fontSize: 14,
+    color: tokens.colors.gray600,
+    marginBottom: 16,
   },
   requestItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.gray200,
+  },
+  requestInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  requestPickup: {
+    fontSize: 15,
+    color: tokens.colors.black,
+    marginBottom: 6,
+  },
+  requestMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requestDistance: {
+    fontSize: 13,
+    color: tokens.colors.gray600,
+    marginRight: 12,
+  },
+  requestFare: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.colors.primary,
+  },
+  acceptButton: {
+    backgroundColor: tokens.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: tokens.radius.md,
+  },
+  acceptButtonText: {
+    color: tokens.colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  historyCard: {
+    marginBottom: 20,
+  },
+  historyItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: tokens.colors.gray200,
   },
-  requestInfo: {
+  historyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  requestText: {
-    fontSize: 14,
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  requestFare: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2563eb',
-  },
-  acceptButton: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  historyCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  historyStatus: {
-    fontSize: 14,
-    color: '#475569',
+  historyDate: {
+    fontSize: 13,
+    color: tokens.colors.gray600,
+    marginLeft: 12,
   },
   historyFare: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: tokens.colors.black,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 60,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: tokens.colors.white,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: tokens.colors.gray400,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

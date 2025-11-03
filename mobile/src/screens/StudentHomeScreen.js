@@ -8,10 +8,18 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestRide } from '../services/api';
 import { onRideAccepted, onRideCompleted } from '../services/socket';
+import tokens from '../styles/tokens';
+import PrimaryButton from '../components/PrimaryButton';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import StatusBadge from '../components/StatusBadge';
 
 export default function StudentHomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
@@ -80,17 +88,21 @@ export default function StudentHomeScreen({ navigation, onLogout }) {
     const socket = require('../services/socket').getSocket();
     if (socket) {
       socket.on('rideStarted', (data) => {
+        console.log('Student received rideStarted:', data);
         Alert.alert('Ride Started', 'Your driver has started the trip');
         setCurrentRide(prev => prev ? { ...prev, status: data.status } : null);
       });
 
       socket.on('rideExpired', (data) => {
+        console.log('Student received rideExpired:', data);
         Alert.alert(
           'Request Expired',
           data.message || 'No drivers available. Please try again.',
-          [{ text: 'OK', onPress: () => setCurrentRide(null) }]
+          [{ text: 'OK', onPress: () => {
+            setCurrentRide(null);
+            setLoading(false);
+          }}]
         );
-        setLoading(false);
       });
     }
   };
@@ -315,255 +327,316 @@ export default function StudentHomeScreen({ navigation, onLogout }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome, {userName}!</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {currentRide && (
-        <View style={styles.currentRideCard}>
-          <Text style={styles.cardTitle}>Current Ride</Text>
-          <Text style={styles.rideStatus}>Status: {currentRide.status}</Text>
-          {currentRide.driver && (
-            <>
-              <Text style={styles.driverInfo}>
-                Driver: {currentRide.driver.name}
-              </Text>
-              {currentRide.driver.phone && (
-                <Text style={styles.driverInfo}>
-                  Phone: {currentRide.driver.phone}
-                </Text>
-              )}
-              {currentRide.driver.vehicleInfo && (
-                <Text style={styles.driverInfo}>
-                  Vehicle: {currentRide.driver.vehicleInfo}
-                </Text>
-              )}
-            </>
-          )}
-          {!currentRide.driver && currentRide.status === 'Requested' && (
-            <Text style={styles.searchingText}>Searching for drivers...</Text>
-          )}
-        </View>
-      )}
-
-      <View style={styles.formCard}>
-        <Text style={styles.cardTitle}>Request a Ride</Text>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Pickup Location</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter pickup address"
-            value={pickup.address}
-            onChangeText={handlePickupChange}
-            editable={!loading && !currentRide}
-          />
-          {pickupSuggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              {pickupSuggestions.map((suggestion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.suggestionItem}
-                  onPress={() => selectPickupLocation(suggestion)}
-                >
-                  <Text style={styles.suggestionText} numberOfLines={2}>
-                    {suggestion.address}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Avatar name={userName} size={40} />
+            <View style={styles.headerText}>
+              <Text style={styles.greetingText}>Hello,</Text>
+              <Text style={styles.userName}>{userName}</Text>
             </View>
-          )}
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutIcon}>⎋</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Dropoff Location</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter dropoff address"
-            value={dropoff.address}
-            onChangeText={handleDropoffChange}
-            editable={!loading && !currentRide}
-          />
-          {dropoffSuggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              {dropoffSuggestions.map((suggestion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.suggestionItem}
-                  onPress={() => selectDropoffLocation(suggestion)}
-                >
-                  <Text style={styles.suggestionText} numberOfLines={2}>
-                    {suggestion.address}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Current Ride Card */}
+          {currentRide && (
+            <Card variant="dark" style={styles.currentRideCard}>
+              <View style={styles.rideHeader}>
+                <Text style={styles.cardTitle}>Your Ride</Text>
+                <StatusBadge status={currentRide.status} />
+              </View>
+              
+              {currentRide.driver ? (
+                <View style={styles.driverSection}>
+                  <Avatar name={currentRide.driver.name} size={56} style={styles.driverAvatar} />
+                  <View style={styles.driverDetails}>
+                    <Text style={styles.driverName}>{currentRide.driver.name}</Text>
+                    {currentRide.driver.phone && (
+                      <Text style={styles.driverContact}>📞 {currentRide.driver.phone}</Text>
+                    )}
+                    {currentRide.driver.vehicleInfo && (
+                      <Text style={styles.vehicleInfo}>🚗 {currentRide.driver.vehicleInfo}</Text>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.searchingContainer}>
+                  <ActivityIndicator size="large" color={tokens.colors.primary} />
+                  <Text style={styles.searchingText}>Finding your driver...</Text>
+                </View>
+              )}
+            </Card>
+          )}
+
+          {/* Request Ride Form */}
+          <Card style={styles.formCard}>
+            <Text style={styles.formTitle}>Where are you going?</Text>
+            
+            <View style={styles.inputContainer}>
+              <View style={styles.inputIcon}>
+                <Text style={styles.iconText}>📍</Text>
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Pickup Location</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter pickup address"
+                  placeholderTextColor={tokens.colors.mutedLight}
+                  value={pickup.address}
+                  onChangeText={handlePickupChange}
+                  editable={!loading && !currentRide}
+                />
+              </View>
             </View>
-          )}
-        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.button,
-            (loading || !!currentRide) && styles.buttonDisabled,
-          ]}
-          onPress={handleRequestRide}
-          disabled={loading || !!currentRide}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {currentRide ? 'Ride in Progress' : 'Request Ride'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+            {pickupSuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {pickupSuggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItem}
+                    onPress={() => selectPickupLocation(suggestion)}
+                  >
+                    <Text style={styles.suggestionIcon}>📌</Text>
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {suggestion.address}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
-      {/* Recent rides removed to start fresh */}
-    </ScrollView>
+            <View style={[styles.inputContainer, styles.inputContainerMargin]}>
+              <View style={styles.inputIcon}>
+                <Text style={styles.iconText}>🎯</Text>
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Drop-off Location</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter dropoff address"
+                  placeholderTextColor={tokens.colors.mutedLight}
+                  value={dropoff.address}
+                  onChangeText={handleDropoffChange}
+                  editable={!loading && !currentRide}
+                />
+              </View>
+            </View>
+
+            {dropoffSuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {dropoffSuggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItem}
+                    onPress={() => selectDropoffLocation(suggestion)}
+                  >
+                    <Text style={styles.suggestionIcon}>📌</Text>
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {suggestion.address}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <PrimaryButton
+              title={currentRide ? 'Ride in Progress' : 'Request Ride'}
+              onPress={handleRequestRide}
+              disabled={loading || !!currentRide}
+              loading={loading}
+              variant="primary"
+              style={styles.requestButton}
+            />
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: tokens.colors.black,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: tokens.colors.black,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingTop: 8,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: tokens.colors.black,
   },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: '600',
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 14,
+    color: tokens.colors.gray400,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: tokens.colors.white,
   },
   logoutButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.gray900,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutText: {
-    color: '#ef4444',
-    fontSize: 14,
+  logoutIcon: {
+    fontSize: 20,
+    color: tokens.colors.white,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   currentRideCard: {
-    backgroundColor: '#dbeafe',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2563eb',
+    marginBottom: 20,
   },
-  formCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-    marginTop: 10,
-  },
-  inputContainer: {
-    position: 'relative',
-    zIndex: 1,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: 70,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    maxHeight: 200,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#94a3b8',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  rideStatus: {
-    fontSize: 16,
-    color: '#1e40af',
-    marginBottom: 5,
-  },
-  driverInfo: {
-    fontSize: 14,
-    color: '#475569',
-  },
-  searchingText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontStyle: 'italic',
-    marginTop: 8,
-  },
-  historyCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 20,
-    borderRadius: 12,
-  },
-  historyItem: {
+  rideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  historyStatus: {
-    fontSize: 14,
-    color: '#475569',
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: tokens.colors.white,
   },
-  historyFare: {
-    fontSize: 14,
+  driverSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  driverAvatar: {
+    marginRight: 16,
+  },
+  driverDetails: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
+    color: tokens.colors.white,
+    marginBottom: 4,
+  },
+  driverContact: {
+    fontSize: 14,
+    color: tokens.colors.gray400,
+    marginBottom: 2,
+  },
+  vehicleInfo: {
+    fontSize: 14,
+    color: tokens.colors.gray400,
+  },
+  searchingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  searchingText: {
+    fontSize: 16,
+    color: tokens.colors.gray300,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  formCard: {
+    marginBottom: 20,
+  },
+  formTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: tokens.colors.black,
+    marginBottom: 20,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: tokens.colors.gray100,
+    borderRadius: tokens.radius.md,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: tokens.colors.gray200,
+  },
+  inputContainerMargin: {
+    marginTop: 12,
+  },
+  inputIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  iconText: {
+    fontSize: 20,
+  },
+  inputWrapper: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: tokens.colors.gray600,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    fontSize: 16,
+    color: tokens.colors.black,
+    padding: 0,
+    margin: 0,
+  },
+  suggestionsContainer: {
+    backgroundColor: tokens.colors.white,
+    borderRadius: tokens.radius.md,
+    marginTop: 8,
+    ...tokens.shadows.md,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.gray200,
+    alignItems: 'center',
+  },
+  suggestionIcon: {
+    fontSize: 16,
+    marginRight: 12,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 14,
+    color: tokens.colors.black,
+  },
+  requestButton: {
+    marginTop: 24,
   },
 });

@@ -1,15 +1,26 @@
 import { io } from 'socket.io-client';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Resolve socket host dynamically so web uses localhost and device uses LAN IP.
-const LAN_IP = '192.168.29.226';
-let SOCKET_URL;
-if (Platform.OS === 'web') {
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  SOCKET_URL = `http://${hostname}:5000`;
-} else {
-  SOCKET_URL = `http://${LAN_IP}:5000`;
+// Try to detect the dev machine host from Expo debuggerHost, otherwise fallback
+const LAN_IP_FALLBACK = '192.168.29.226';
+
+function getSocketUrl() {
+  if (Platform.OS === 'web') {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${hostname}:5000`;
+  }
+
+  const debuggerHost = Constants.manifest?.debuggerHost || Constants.manifest2?.debuggerHost;
+  if (debuggerHost) {
+    const hostPart = debuggerHost.split(':')[0];
+    return `http://${hostPart}:5000`;
+  }
+
+  return `http://${LAN_IP_FALLBACK}:5000`;
 }
+
+const SOCKET_URL = getSocketUrl();
 
 let socket = null;
 

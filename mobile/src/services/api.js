@@ -1,19 +1,31 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Resolve backend host dynamically so web can use localhost and device uses LAN IP.
-// Update the LAN_IP below to match your machine when testing on a phone.
-const LAN_IP = '192.168.29.226';
-let host;
-if (Platform.OS === 'web') {
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  host = `http://${hostname}:5000`;
-} else {
-  host = `http://${LAN_IP}:5000`;
+// Resolve backend host dynamically. Prefer Expo debuggerHost when available
+// (works when running `expo start` and your device is connected to the dev machine's network/hotspot).
+const LAN_IP_FALLBACK = '192.168.29.226'; // keep a sensible fallback you can update
+
+function getDevHost() {
+  // Web -> use browser host
+  if (Platform.OS === 'web') {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${hostname}:5000`;
+  }
+
+  // If running under Expo, attempt to read the debugger host which includes the dev machine IP
+  const debuggerHost = Constants.manifest?.debuggerHost || Constants.manifest2?.debuggerHost;
+  if (debuggerHost) {
+    const hostPart = debuggerHost.split(':')[0];
+    return `http://${hostPart}:5000`;
+  }
+
+  // Fallback to configured LAN_IP
+  return `http://${LAN_IP_FALLBACK}:5000`;
 }
 
-const API_URL = `${host}/api`;
+const API_URL = `${getDevHost()}/api`;
 
 const api = axios.create({
   baseURL: API_URL,

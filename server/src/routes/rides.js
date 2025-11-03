@@ -195,6 +195,8 @@ router.post('/accept/:rideId', authMiddleware, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       const driver = await User.findById(req.userId);
+      
+      // Emit to student
       io.to(`user:${updatedRide.requesterId._id}`).emit('rideAccepted', {
         rideId: updatedRide._id,
         status: 'Accepted',
@@ -208,7 +210,37 @@ router.post('/accept/:rideId', authMiddleware, async (req, res) => {
       });
       
       console.log(`Notified student ${updatedRide.requesterId._id} about ride acceptance`);
-      console.log('Sockets in room user:' + updatedRide.requesterId._id, io.sockets.adapter.rooms.get(`user:${updatedRide.requesterId._id}`));
+
+      // Emit to the accepting driver to confirm acceptance
+      io.to(`driver:${req.userId}`).emit('rideAcceptedConfirmation', {
+        rideId: updatedRide._id,
+        status: 'Accepted',
+        student: {
+          id: updatedRide.requesterId._id,
+          name: updatedRide.requesterId.name,
+          phone: updatedRide.requesterId.phone
+        },
+        pickup: updatedRide.riders[0].pickup.address,
+        dropoff: updatedRide.riders[0].dropoff.address,
+        fare: updatedRide.fare
+      });
+
+      console.log(`Confirmed acceptance to driver ${req.userId}`);
+
+      // Notify all OTHER online drivers that this ride is no longer available
+      const onlineDrivers = await User.find({
+        role: 'driver',
+        'currentStatus.online': true,
+        _id: { $ne: req.userId } // Exclude the accepting driver
+      });
+
+      onlineDrivers.forEach(otherDriver => {
+        io.to(`driver:${otherDriver._id}`).emit('rideNoLongerAvailable', {
+          rideId: updatedRide._id
+        });
+      });
+
+      console.log(`Notified ${onlineDrivers.length} other drivers that ride ${updatedRide._id} is no longer available`);
     }
   } catch (error) {
     console.error('Accept ride error:', error);
@@ -233,7 +265,14 @@ router.post('/start/:rideId', authMiddleware, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      // Notify student
       io.to(`user:${ride.requesterId}`).emit('rideStarted', { 
+        rideId: ride._id,
+        status: 'OnRide'
+      });
+      
+      // Notify driver (for consistency)
+      io.to(`driver:${req.userId}`).emit('rideStarted', {
         rideId: ride._id,
         status: 'OnRide'
       });
@@ -275,10 +314,19 @@ router.post('/complete/:rideId', authMiddleware, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      // Notify student
       io.to(`user:${ride.requesterId}`).emit('rideCompleted', {
         rideId: ride._id,
         fare: ride.fare.total
       });
+
+      // Notify driver
+      io.to(`driver:${req.userId}`).emit('rideCompleted', {
+        rideId: ride._id,
+        fare: ride.fare.total
+      });
+
+      console.log(`Notified student and driver that ride ${ride._id} completed`);
     }
   } catch (error) {
     console.error('Complete ride error:', error);
