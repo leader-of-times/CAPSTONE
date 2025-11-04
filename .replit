@@ -33,3 +33,7 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "mongod --dbpath /tmp/mongodb-data --fork --logpath /tmp/mongodb.log && cd server && node src/index.js & cd mobile && EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 npx expo start --web --port 5000"]
