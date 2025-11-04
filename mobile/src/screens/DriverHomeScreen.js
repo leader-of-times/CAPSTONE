@@ -27,6 +27,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import StatusBadge from '../components/StatusBadge';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DriverHomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
@@ -53,6 +54,9 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
       if (isOnline) {
         updateDriverStatus(false);
       }
+      // Cleanup socket listeners on unmount
+      const { removeAllListeners } = require('../services/socket');
+      removeAllListeners();
     };
   }, []);
 
@@ -79,6 +83,32 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
         `Pickup: ${data.pickup}\nFare: ₹${data.fareEstimate}`,
         [{ text: 'View', onPress: () => {} }]
       );
+    });
+
+    // When driver accepts, server sends confirmation specifically to that driver
+    const { onRideAcceptedConfirmation, onRideNoLongerAvailable } = require('../services/socket');
+    onRideAcceptedConfirmation((payload) => {
+      console.log('Driver received rideAcceptedConfirmation:', payload);
+      // Set current ride and remove it from pendingRequests
+      setCurrentRide({
+        _id: payload.rideId,
+        status: payload.status,
+        student: payload.student,
+        pickup: payload.pickup,
+        dropoff: payload.dropoff,
+        fare: payload.fare,
+      });
+      setPendingRequests((prev) => prev.filter((r) => r.rideId !== payload.rideId));
+    });
+
+    // Remove pending request if another driver accepted it
+    onRideNoLongerAvailable((data) => {
+      console.log('Driver received rideNoLongerAvailable for:', data.rideId);
+      setPendingRequests((prev) => prev.filter((r) => r.rideId !== data.rideId));
+      // If the driver was viewing this ride, clear it
+      if (currentRide && currentRide._id === data.rideId) {
+        setCurrentRide(null);
+      }
     });
 
     // Listen for ride acceptance confirmation (when this driver accepts)
@@ -275,7 +305,10 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
                   <View style={styles.passengerDetails}>
                     <Text style={styles.passengerName}>{currentRide.student.name}</Text>
                     {currentRide.student.phone && (
-                      <Text style={styles.passengerPhone}>📞 {currentRide.student.phone}</Text>
+                      <View style={styles.iconTextRow}>
+                        <Ionicons name="call" size={16} color={tokens.colors.textSecondary} style={styles.floatingIcon} />
+                        <Text style={styles.passengerPhone}>{currentRide.student.phone}</Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -374,7 +407,7 @@ export default function DriverHomeScreen({ navigation, onLogout }) {
           {/* Empty State */}
           {isOnline && pendingRequests.length === 0 && !currentRide && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🚗</Text>
+              <Ionicons name="car" size={48} color={tokens.colors.gray400} style={styles.floatingIcon} />
               <Text style={styles.emptyTitle}>Waiting for rides...</Text>
               <Text style={styles.emptyText}>
                 You're online! New ride requests will appear here.
@@ -627,5 +660,14 @@ const styles = StyleSheet.create({
     color: tokens.colors.gray400,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  iconTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  floatingIcon: {
+    marginRight: 8,
+    opacity: 0.8,
   },
 });

@@ -15,6 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 import { register } from '../services/api';
 import tokens from '../styles/tokens';
 import PrimaryButton from '../components/PrimaryButton';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation, onAuthSuccess }) {
   const [formData, setFormData] = useState({
@@ -124,7 +125,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
 
             <View style={styles.inputContainer}>
               <View style={styles.inputIconContainer}>
-                <Text style={styles.inputIcon}>🔒</Text>
+                <Ionicons name="lock-closed" size={20} color={tokens.colors.gray500} style={styles.floatingIcon} />
               </View>
               <TextInput
                 style={styles.input}
@@ -139,7 +140,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
 
             <View style={styles.inputContainer}>
               <View style={styles.inputIconContainer}>
-                <Text style={styles.inputIcon}>📞</Text>
+                <Ionicons name="call" size={20} color={tokens.colors.gray500} style={styles.floatingIcon} />
               </View>
               <TextInput
                 style={styles.input}
@@ -170,7 +171,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
                 <Text style={styles.sectionTitle}>Vehicle Information</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.inputIconContainer}>
-                    <Text style={styles.inputIcon}>🚗</Text>
+                    <Ionicons name="car" size={20} color={tokens.colors.gray500} style={styles.floatingIcon} />
                   </View>
                   <TextInput
                     style={styles.input}
@@ -341,5 +342,8 @@ const styles = StyleSheet.create({
   linkTextBold: {
     color: tokens.colors.primary,
     fontWeight: '600',
+  },
+  floatingIcon: {
+    opacity: 0.8,
   },
 });

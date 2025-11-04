@@ -18,6 +18,7 @@ import { onRideAccepted, onRideCompleted } from '../services/socket';
 import tokens from '../styles/tokens';
 import PrimaryButton from '../components/PrimaryButton';
 import Card from '../components/Card';
+import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
 import StatusBadge from '../components/StatusBadge';
 
@@ -38,11 +39,13 @@ export default function StudentHomeScreen({ navigation, onLogout }) {
 
   useEffect(() => {
     loadUserData();
-  // starting fresh: recent rides removed
+    // starting fresh: recent rides removed
     setupSocketListeners();
 
     return () => {
-      // Cleanup listeners
+      // Cleanup socket listeners on unmount to avoid duplicates
+      const { removeAllListeners } = require('../services/socket');
+      removeAllListeners();
     };
   }, []);
 
@@ -361,10 +364,16 @@ export default function StudentHomeScreen({ navigation, onLogout }) {
                   <View style={styles.driverDetails}>
                     <Text style={styles.driverName}>{currentRide.driver.name}</Text>
                     {currentRide.driver.phone && (
-                      <Text style={styles.driverContact}>📞 {currentRide.driver.phone}</Text>
+                      <View style={styles.iconTextRow}>
+                        <Ionicons name="call" size={18} color={tokens.colors.textSecondary} style={styles.floatingIcon} />
+                        <Text style={styles.driverContact}>{currentRide.driver.phone}</Text>
+                      </View>
                     )}
                     {currentRide.driver.vehicleInfo && (
-                      <Text style={styles.vehicleInfo}>🚗 {currentRide.driver.vehicleInfo}</Text>
+                      <View style={styles.iconTextRow}>
+                        <Ionicons name="car" size={18} color={tokens.colors.textSecondary} style={styles.floatingIcon} />
+                        <Text style={styles.vehicleInfo}>{currentRide.driver.vehicleInfo}</Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -638,5 +647,14 @@ const styles = StyleSheet.create({
   },
   requestButton: {
     marginTop: 24,
+  },
+  iconTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  floatingIcon: {
+    marginRight: 8,
+    opacity: 0.8,
   },
 });

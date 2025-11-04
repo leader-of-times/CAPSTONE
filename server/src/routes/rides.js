@@ -197,6 +197,14 @@ router.post('/accept/:rideId', authMiddleware, async (req, res) => {
       const driver = await User.findById(req.userId);
       
       // Emit to student
+      // Debug: log sockets present in the student's room before emitting
+      try {
+        const room = io.sockets.adapter.rooms.get(`user:${updatedRide.requesterId._id}`);
+        console.log('Sockets in student room', `user:${updatedRide.requesterId._id}`, room ? Array.from(room) : 'none');
+      } catch (e) {
+        console.error('Error reading room sockets:', e);
+      }
+
       io.to(`user:${updatedRide.requesterId._id}`).emit('rideAccepted', {
         rideId: updatedRide._id,
         status: 'Accepted',

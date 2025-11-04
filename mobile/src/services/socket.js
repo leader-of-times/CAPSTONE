@@ -23,6 +23,8 @@ function getSocketUrl() {
 const SOCKET_URL = getSocketUrl();
 
 let socket = null;
+// queuedListeners stores callbacks when socket isn't initialized yet
+const queuedListeners = {};
 
 export const initSocket = (token, userId, role) => {
   if (socket) {
@@ -39,6 +41,10 @@ export const initSocket = (token, userId, role) => {
   socket.on('connect', () => {
     console.log('Socket connected');
     socket.emit('authenticate', { userId, role });
+    // attach any queued listeners
+    Object.keys(queuedListeners).forEach((eventName) => {
+      queuedListeners[eventName].forEach((cb) => socket.on(eventName, cb));
+    });
   });
 
   socket.on('authenticated', (data) => {
@@ -87,26 +93,58 @@ export const updateDriverLocation = (coordinates) => {
 export const onNewRideRequest = (callback) => {
   if (socket) {
     socket.on('newRideRequest', callback);
+  } else {
+    queuedListeners['newRideRequest'] = queuedListeners['newRideRequest'] || [];
+    queuedListeners['newRideRequest'].push(callback);
   }
 };
 
 export const onRideAccepted = (callback) => {
   if (socket) {
     socket.on('rideAccepted', callback);
+  } else {
+    queuedListeners['rideAccepted'] = queuedListeners['rideAccepted'] || [];
+    queuedListeners['rideAccepted'].push(callback);
   }
 };
 
 export const onRideStarted = (callback) => {
   if (socket) {
     socket.on('rideStarted', callback);
+  } else {
+    queuedListeners['rideStarted'] = queuedListeners['rideStarted'] || [];
+    queuedListeners['rideStarted'].push(callback);
   }
 };
 
 export const onRideCompleted = (callback) => {
   if (socket) {
     socket.on('rideCompleted', callback);
+  } else {
+    queuedListeners['rideCompleted'] = queuedListeners['rideCompleted'] || [];
+    queuedListeners['rideCompleted'].push(callback);
   }
 };
+
+export const onRideAcceptedConfirmation = (callback) => {
+  if (socket) {
+    socket.on('rideAcceptedConfirmation', callback);
+  } else {
+    queuedListeners['rideAcceptedConfirmation'] = queuedListeners['rideAcceptedConfirmation'] || [];
+    queuedListeners['rideAcceptedConfirmation'].push(callback);
+  }
+};
+
+export const onRideNoLongerAvailable = (callback) => {
+  if (socket) {
+    socket.on('rideNoLongerAvailable', callback);
+  } else {
+    queuedListeners['rideNoLongerAvailable'] = queuedListeners['rideNoLongerAvailable'] || [];
+    queuedListeners['rideNoLongerAvailable'].push(callback);
+  }
+};
+
+// (queued listener versions above handle registration when socket not ready)
 
 export const removeAllListeners = () => {
   if (socket) {

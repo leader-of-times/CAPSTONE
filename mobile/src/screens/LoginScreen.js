@@ -15,6 +15,7 @@ import { login } from '../services/api';
 import { initSocket } from '../services/socket';
 import tokens from '../styles/tokens';
 import PrimaryButton from '../components/PrimaryButton';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation, onAuthSuccess }) {
   const [email, setEmail] = useState('');
@@ -94,7 +95,7 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
 
           <View style={styles.inputContainer}>
             <View style={styles.inputIconContainer}>
-              <Text style={styles.inputIcon}>🔒</Text>
+              <Ionicons name="lock-closed" size={20} color={tokens.colors.gray500} style={styles.floatingIcon} />
             </View>
             <TextInput
               style={styles.input}
@@ -231,5 +232,8 @@ const styles = StyleSheet.create({
   linkTextBold: {
     color: tokens.colors.primary,
     fontWeight: '600',
+  },
+  floatingIcon: {
+    opacity: 0.8,
   },
 });
