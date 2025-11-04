@@ -37,3 +37,6 @@ web-build/
 
 # Build
 build/
+
+.local/
+

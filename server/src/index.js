@@ -59,8 +59,9 @@ mongoose
   .connect(MONGODB_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
-    server.listen(PORT, 'localhost', () => {
-      console.log(`🚀 Server running on localhost:${PORT}`);
+    // Listen on all interfaces so mobile devices on the LAN (Expo) can reach the dev server
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   })
   .catch((err) => {

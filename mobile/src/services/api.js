@@ -5,27 +5,23 @@ import Constants from 'expo-constants';
 
 // Resolve backend host dynamically. Prefer Expo debuggerHost when available
 // (works when running `expo start` and your device is connected to the dev machine's network/hotspot).
-const LAN_IP_FALLBACK = '192.168.29.226'; // keep a sensible fallback you can update
+// Update this to your dev machine's LAN IP if the automatic debuggerHost detection fails.
+const LAN_IP_FALLBACK = '192.168.68.103'; // <-- set to your machine's IPv4 from `ipconfig`
 
 function getDevHost() {
-  // Web -> use browser host with backend on port 3000
+  // Web -> use localhost with backend on port 3000
   if (Platform.OS === 'web') {
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${hostname}:3000`;
+    return 'http://localhost:3000';
   }
 
-  // If running under Expo, attempt to read the debugger host which includes the dev machine IP
-  const debuggerHost = Constants.manifest?.debuggerHost || Constants.manifest2?.debuggerHost;
-  if (debuggerHost) {
-    const hostPart = debuggerHost.split(':')[0];
-    return `http://${hostPart}:3000`;
-  }
-
-  // Fallback to configured LAN_IP
+  // Mobile -> use the configured LAN IP (update LAN_IP_FALLBACK if your network changes)
   return `http://${LAN_IP_FALLBACK}:3000`;
 }
 
 const API_URL = `${getDevHost()}/api`;
+
+// Debug: log the resolved API URL
+console.log('🔗 API base URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,

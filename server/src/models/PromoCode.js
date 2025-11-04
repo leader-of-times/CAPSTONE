@@ -55,7 +55,6 @@ const promoCodeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-promoCodeSchema.index({ code: 1 });
 promoCodeSchema.index({ validFrom: 1, validUntil: 1 });
 
 module.exports = mongoose.model('PromoCode', promoCodeSchema);
