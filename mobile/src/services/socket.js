@@ -8,16 +8,16 @@ const LAN_IP_FALLBACK = '192.168.29.226';
 function getSocketUrl() {
   if (Platform.OS === 'web') {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${hostname}:5000`;
+    return `http://${hostname}:3000`;
   }
 
   const debuggerHost = Constants.manifest?.debuggerHost || Constants.manifest2?.debuggerHost;
   if (debuggerHost) {
     const hostPart = debuggerHost.split(':')[0];
-    return `http://${hostPart}:5000`;
+    return `http://${hostPart}:3000`;
   }
 
-  return `http://${LAN_IP_FALLBACK}:5000`;
+  return `http://${LAN_IP_FALLBACK}:3000`;
 }
 
 const SOCKET_URL = getSocketUrl();

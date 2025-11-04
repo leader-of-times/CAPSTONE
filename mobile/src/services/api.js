@@ -8,21 +8,21 @@ import Constants from 'expo-constants';
 const LAN_IP_FALLBACK = '192.168.29.226'; // keep a sensible fallback you can update
 
 function getDevHost() {
-  // Web -> use browser host
+  // Web -> use browser host with backend on port 3000
   if (Platform.OS === 'web') {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${hostname}:5000`;
+    return `http://${hostname}:3000`;
   }
 
   // If running under Expo, attempt to read the debugger host which includes the dev machine IP
   const debuggerHost = Constants.manifest?.debuggerHost || Constants.manifest2?.debuggerHost;
   if (debuggerHost) {
     const hostPart = debuggerHost.split(':')[0];
-    return `http://${hostPart}:5000`;
+    return `http://${hostPart}:3000`;
   }
 
   // Fallback to configured LAN_IP
-  return `http://${LAN_IP_FALLBACK}:5000`;
+  return `http://${LAN_IP_FALLBACK}:3000`;
 }
 
 const API_URL = `${getDevHost()}/api`;
