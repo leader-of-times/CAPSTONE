@@ -27,7 +27,12 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      trim: true
+      trim: true,
+      sparse: true
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false
     },
     // Driver-specific fields
     vehicleInfo: {

@@ -10,6 +10,8 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import StudentHomeScreen from './src/screens/StudentHomeScreen';
 import DriverHomeScreen from './src/screens/DriverHomeScreen';
 import RideDetailsScreen from './src/screens/RideDetailsScreen';
+import TrackRideScreen from './src/screens/TrackRideScreen';
+import PaymentScreen from './src/screens/PaymentScreen';
 
 // Services
 import { initSocket } from './src/services/socket';
@@ -176,6 +178,16 @@ export default function App() {
               name="RideDetails" 
               component={RideDetailsScreen}
               options={{ title: 'Ride Details' }}
+            />
+            <Stack.Screen 
+              name="TrackRide" 
+              component={TrackRideScreen}
+              options={{ title: 'Track Ride' }}
+            />
+            <Stack.Screen 
+              name="Payment" 
+              component={PaymentScreen}
+              options={{ title: 'Payment' }}
             />
           </>
         )}

@@ -52,6 +52,30 @@ const rideSchema = new mongoose.Schema(
     estimatedDuration: {
       type: Number, // in minutes
       default: 0
+    },
+    payment: {
+      orderId: String,
+      paymentId: String,
+      signature: String,
+      status: {
+        type: String,
+        enum: ['not_initiated', 'pending', 'completed', 'failed'],
+        default: 'not_initiated'
+      },
+      paidAt: Date
+    },
+    scheduledFor: {
+      type: Date,
+      default: null
+    },
+    isScheduled: {
+      type: Boolean,
+      default: false
+    },
+    promoCode: {
+      code: String,
+      discount: Number,
+      originalFare: Number
     }
   },
   { timestamps: true }

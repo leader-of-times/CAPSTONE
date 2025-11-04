@@ -8,6 +8,13 @@ const mongoose = require('mongoose');
 // Routes
 const authRoutes = require('./routes/auth');
 const rideRoutes = require('./routes/rides');
+const paymentRoutes = require('./routes/payments');
+const otpRoutes = require('./routes/otp');
+const reviewRoutes = require('./routes/reviews');
+const promoRoutes = require('./routes/promos');
+const adminRoutes = require('./routes/admin');
+const notificationRoutes = require('./routes/notifications');
+const schedulingRoutes = require('./routes/scheduling');
 
 // Socket handlers
 const socketHandler = require('./sockets/handler');
@@ -29,6 +36,13 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rides', rideRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/otp', otpRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/promos', promoRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/scheduling', schedulingRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Auto-Share API running' });

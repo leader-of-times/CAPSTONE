@@ -113,11 +113,88 @@ module.exports = (io) => {
           'currentStatus.updatedAt': new Date()
         });
 
-        // Broadcast to riders in active rides (future enhancement)
-        // For now just acknowledge
+        // Broadcast to riders in active rides
+        const Ride = require('../models/Ride');
+        const activeRides = await Ride.find({
+          driverId: socket.userId,
+          status: { $in: ['Accepted', 'OnRoute', 'OnRide'] }
+        });
+
+        activeRides.forEach(ride => {
+          ride.riders.forEach(rider => {
+            io.to(`user:${rider.userId}`).emit('driverLocationUpdate', {
+              rideId: ride._id,
+              coordinates
+            });
+          });
+        });
+
         socket.emit('locationUpdated', { coordinates });
       } catch (error) {
         console.error('Update location error:', error);
+      }
+    });
+
+    // Chat messaging
+    socket.on('sendMessage', async (data) => {
+      try {
+        const { rideId, receiverId, message } = data;
+
+        if (!socket.userId) {
+          socket.emit('error', { message: 'Not authenticated' });
+          return;
+        }
+
+        const ChatMessage = require('../models/ChatMessage');
+        
+        const chatMessage = new ChatMessage({
+          rideId,
+          senderId: socket.userId,
+          receiverId,
+          message
+        });
+
+        await chatMessage.save();
+
+        io.to(`user:${receiverId}`).emit('newMessage', {
+          rideId,
+          senderId: socket.userId,
+          message,
+          createdAt: chatMessage.createdAt
+        });
+
+        socket.emit('messageSent', {
+          messageId: chatMessage._id,
+          createdAt: chatMessage.createdAt
+        });
+      } catch (error) {
+        console.error('Send message error:', error);
+        socket.emit('error', { message: 'Failed to send message' });
+      }
+    });
+
+    socket.on('markMessagesRead', async (data) => {
+      try {
+        const { rideId } = data;
+
+        if (!socket.userId) {
+          return;
+        }
+
+        const ChatMessage = require('../models/ChatMessage');
+        
+        await ChatMessage.updateMany(
+          {
+            rideId,
+            receiverId: socket.userId,
+            read: false
+          },
+          { read: true }
+        );
+
+        socket.emit('messagesMarkedRead', { rideId });
+      } catch (error) {
+        console.error('Mark messages read error:', error);
       }
     });
 
